@@ -14,11 +14,12 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         this.jumpPower = attributes.jumpPower || -350;
 
         this.controls = controls;
+        this.scene = scene;
 
         // cria a barra de vida
         this.healthBar = scene.add.graphics();
-        this.barX = attributes.barX || 20;   // posição X da barra
-        this.barY = attributes.barY || 30;   // posição Y da barra
+        this.barX = attributes.barX || 20;
+        this.barY = attributes.barY || 30;
         this.updateHealthBar();
     }
 
@@ -27,7 +28,7 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
 
         if (this.controls.left.isDown) {
             this.setVelocityX(-this.speed);
-            this.anims.play('walk', true)
+            this.anims.play('walk', true);
             this.flipX = true;
         } else if (this.controls.right.isDown) {
             this.setVelocityX(this.speed);
@@ -40,11 +41,39 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
     }
 
     attack(target) {
+        // ataque corpo a corpo
         if (Phaser.Input.Keyboard.JustDown(this.controls.attack)) {
             if (Phaser.Geom.Intersects.RectangleToRectangle(this.getBounds(), target.getBounds())) {
                 target.takeDamage(this.damage);
             }
         }
+
+        // ataque especial (projétil)
+        if (Phaser.Input.Keyboard.JustDown(this.controls.specialAttack)) {
+            this.shootProjectile();
+        }
+    }
+
+    shootProjectile() {
+        // cria um projétil
+        const projectile = this.scene.physics.add.sprite(this.x, this.y, 'projectile');
+        projectile.setCollideWorldBounds(true);
+        projectile.body.onWorldBounds = true;
+
+        // define direção
+        const velocity = this.flipX ? -400 : 400;
+        projectile.setVelocityX(velocity);
+
+        // colisão com o outro jogador
+        this.scene.physics.add.overlap(projectile, this.scene.player1 === this ? this.scene.player2 : this.scene.player1, (proj, target) => {
+            target.takeDamage(20); // dano do poder
+            proj.destroy();
+        });
+
+        // destrói ao colidir com o chão
+        this.scene.physics.add.collider(projectile, this.scene.ground, () => {
+            projectile.destroy();
+        });
     }
 
     takeDamage(amount) {
@@ -55,13 +84,16 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         if (this.health <= 0) {
             this.setTint(0xff0000);
             this.setVelocity(0, 0);
+            this.destroy()
         }
+
+        
     }
 
     updateHealthBar() {
         this.healthBar.clear();
 
-        // fundo da barra (vermelho)
+        // fundo (vermelho)
         this.healthBar.fillStyle(0xff0000);
         this.healthBar.fillRect(this.barX, this.barY, 200, 20);
 
@@ -80,22 +112,24 @@ class MyGame extends Phaser.Scene {
     preload() {
         this.load.image('ground', 'assets/ground.png');
         this.load.spritesheet('player1', 'assets/dog.png', {
-    frameWidth: 50, 
-    frameHeight: 50  
-});
+            frameWidth: 50,
+            frameHeight: 50
+        });
 
         this.load.image('player2', 'assets/enemy.png');
 
-         this.load.spritesheet('bg', 'assets/cenario.png', {
-        frameWidth: 1024,   // largura de cada frame do BG
-        frameHeight: 1024   // altura de cada frame do BG
-    });
+        this.load.spritesheet('bg', 'assets/cenario.png', {
+            frameWidth: 256,
+            frameHeight: 256
+        });
+
+        this.load.image('projectile', 'assets/projectile.png'); // imagem do poder
     }
 
     create() {
         // chão
-        const ground = this.physics.add.staticGroup();
-        ground.create(400, 580, 'ground').setScale(2).refreshBody();
+        this.ground = this.physics.add.staticGroup();
+        this.ground.create(400, 580, 'ground').setScale(2).refreshBody();
 
         // controles Player 1
         const controlsP1 = {
@@ -103,6 +137,7 @@ class MyGame extends Phaser.Scene {
             right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
             jump: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
             attack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
+            specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z)
         };
 
         // controles Player 2
@@ -111,9 +146,10 @@ class MyGame extends Phaser.Scene {
             right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
             jump: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
             attack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT),
+            specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F)
         };
 
-        // Player 1: rápido, mas menos dano
+        // Player 1
         this.player1 = new Fighter(this, 200, 450, 'player1', controlsP1, {
             health: 100,
             damage: 8,
@@ -123,7 +159,7 @@ class MyGame extends Phaser.Scene {
             barY: 30
         });
 
-        // Player 2: mais forte, mas mais lento
+        // Player 2
         this.player2 = new Fighter(this, 600, 450, 'player2', controlsP2, {
             health: 120,
             damage: 15,
@@ -134,32 +170,31 @@ class MyGame extends Phaser.Scene {
         });
 
         // colisões com o chão
-        this.physics.add.collider(this.player1, ground);
-        this.physics.add.collider(this.player2, ground);
+        this.physics.add.collider(this.player1, this.ground);
+        this.physics.add.collider(this.player2, this.ground);
+
+        // animação andar
+        this.anims.create({
+            key: 'walk',
+            frames: this.anims.generateFrameNumbers('player1', { start: 0, end: 3 }),
+            frameRate: 10,
+            repeat: -1
+        });
+
+        // fundo
+        this.background = this.add.sprite(400, 300, 'bg')
+            .setOrigin(0.5, 0.5)
+            .setDepth(-1)
+            .setScale(3.1, 3);
 
         this.anims.create({
-    key: 'walk',
-    frames: this.anims.generateFrameNumbers('player1', { start: 0, end: 3 }), // depende do seu spritesheet
-    frameRate: 10,
-    repeat: -1
-});
+            key: 'bgAnim',
+            frames: this.anims.generateFrameNumbers('bg', { start: 0, end: 5 }),
+            frameRate: 6,
+            repeat: -1
+        });
 
-this.background = this.add.sprite(400, 300, 'bg')
-.setOrigin(0.5, 0.5)
-.setDepth(-1)
-    .setScale(12.5, 1.5);
-
-    // cria a animação
-    this.anims.create({
-        key: 'bgAnim',
-        frames: this.anims.generateFrameNumbers('bg', { start: 0, end: 5 }), // depende do spritesheet
-        frameRate: 6,
-        repeat: -1
-    });
-
-    // toca a animação
-    this.background.play('bgAnim');
-
+        this.background.play('bgAnim');
     }
 
     update() {

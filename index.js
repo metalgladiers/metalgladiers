@@ -5,8 +5,9 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         scene.physics.add.existing(this);
 
         this.setCollideWorldBounds(true);
+        this.originalTint = attributes.tint || 0xffffff;
+        this.setTint(this.originalTint);
 
-        // atributos customizáveis
         this.health = attributes.health || 100;
         this.maxHealth = this.health;
         this.damage = attributes.damage || 10;
@@ -16,7 +17,6 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         this.controls = controls;
         this.scene = scene;
 
-        // cria a barra de vida
         this.healthBar = scene.add.graphics();
         this.barX = attributes.barX || 20;
         this.barY = attributes.barY || 30;
@@ -24,11 +24,12 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
     }
 
     move() {
+        if (!this.active) return;
+
         this.setVelocityX(0);
 
         if (this.controls.left.isDown) {
             this.setVelocityX(-this.speed);
-            this.anims.play('walk', true);
             this.flipX = true;
         } else if (this.controls.right.isDown) {
             this.setVelocityX(this.speed);
@@ -41,40 +42,47 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
     }
 
     attack(target) {
-        // ataque corpo a corpo
+        if (!this.active) return;
+
         if (Phaser.Input.Keyboard.JustDown(this.controls.attack)) {
             if (Phaser.Geom.Intersects.RectangleToRectangle(this.getBounds(), target.getBounds())) {
                 target.takeDamage(this.damage);
             }
         }
 
-        // ataque especial (projétil)
         if (Phaser.Input.Keyboard.JustDown(this.controls.specialAttack)) {
             this.shootProjectile();
         }
     }
 
     shootProjectile() {
-        // cria um projétil
-        const projectile = this.scene.physics.add.sprite(this.x, this.y, 'projectile');
-        projectile.setCollideWorldBounds(true);
-        projectile.body.onWorldBounds = true;
+    const projectile = this.scene.physics.add.sprite(this.x, this.y, 'projectile');
+    projectile.setCollideWorldBounds(true);
+    projectile.body.onWorldBounds = true;
 
-        // define direção
-        const velocity = this.flipX ? -400 : 400;
-        projectile.setVelocityX(velocity);
+    projectile.play('projectileAnim');
 
-        // colisão com o outro jogador
-        this.scene.physics.add.overlap(projectile, this.scene.player1 === this ? this.scene.player2 : this.scene.player1, (proj, target) => {
-            target.takeDamage(20); // dano do poder
+    const velocity = this.flipX ? -400 : 400;
+    projectile.setVelocityX(velocity);
+
+    this.scene.physics.add.overlap(
+        projectile,
+        this.scene.player1 === this ? this.scene.player2 : this.scene.player1,
+        (proj, target) => {
+            target.takeDamage(20);
             proj.destroy();
-        });
+        }
+    );
 
-        // destrói ao colidir com o chão
-        this.scene.physics.add.collider(projectile, this.scene.ground, () => {
-            projectile.destroy();
-        });
-    }
+    this.scene.physics.add.collider(projectile, this.scene.ground, () => {
+        projectile.destroy();
+    });
+
+    this.scene.time.delayedCall(2000, () => {
+        if (projectile.active) projectile.destroy();
+    });
+}
+
 
     takeDamage(amount) {
         this.health -= amount;
@@ -82,27 +90,32 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         this.updateHealthBar();
 
         if (this.health <= 0) {
+            this.destroy();
+            this.healthBar.clear();
+            console.log(`${this.texture.key} foi derrotado!`);
+        } else {
             this.setTint(0xff0000);
-            this.setVelocity(0, 0);
-            this.destroy()
+            this.scene.time.delayedCall(150, () => {
+                this.setTint(this.originalTint);
+            });
         }
-
-        
     }
 
     updateHealthBar() {
         this.healthBar.clear();
-
-        // fundo (vermelho)
         this.healthBar.fillStyle(0xff0000);
         this.healthBar.fillRect(this.barX, this.barY, 200, 20);
 
-        // vida atual (verde)
         this.healthBar.fillStyle(0x00ff00);
         const hpWidth = (this.health / this.maxHealth) * 200;
         this.healthBar.fillRect(this.barX, this.barY, hpWidth, 20);
+
+        this.healthBar.lineStyle(2, 0xffffff);
+        this.healthBar.strokeRect(this.barX, this.barY, 200, 20);
+        this.healthBar.setScrollFactor(0);
     }
 }
+
 
 class MyGame extends Phaser.Scene {
     constructor() {
@@ -110,47 +123,52 @@ class MyGame extends Phaser.Scene {
     }
 
     preload() {
+        this.load.image('bg', 'assets/floresta.png');
         this.load.image('ground', 'assets/ground.png');
-        this.load.spritesheet('player1', 'assets/dog.png', {
-            frameWidth: 50,
-            frameHeight: 50
+
+        this.load.spritesheet('projectile', 'assets/poder.png', {
+            frameWidth: 32,
+            frameHeight: 32
         });
 
-        this.load.image('player2', 'assets/enemy.png');
-
-        this.load.spritesheet('bg', 'assets/cenario.png', {
-            frameWidth: 256,
-            frameHeight: 256
-        });
-
-        this.load.image('projectile', 'assets/projectile.png'); // imagem do poder
+        this.textures.generate('player1', { data: ['2'], pixelWidth: 64, pixelHeight: 64 });
+        this.textures.generate('player2', { data: ['2'], pixelWidth: 64, pixelHeight: 64 });
     }
 
     create() {
-        // chão
+        this.background = this.add.sprite(400, 300, 'bg')
+            .setDepth(-5)
+            .setScale(1.5);
+
         this.ground = this.physics.add.staticGroup();
         this.ground.create(400, 580, 'ground').setScale(2).refreshBody();
 
-        // controles Player 1
+        this.anims.create({
+    key: 'projectileAnim',
+    frames: this.anims.generateFrameNumbers('projectile', { start: 0, end: 3 }),
+    frameRate: 10,
+    repeat: -1
+});
+
+
         const controlsP1 = {
             left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
             right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
-            jump: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
-            attack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
-            specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z)
+            jump: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
+            attack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R),
+            specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E)
         };
 
-        // controles Player 2
         const controlsP2 = {
             left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
             right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
             jump: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
             attack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT),
-            specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F)
+            specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER)
         };
 
-        // Player 1
         this.player1 = new Fighter(this, 200, 450, 'player1', controlsP1, {
+            tint: 0x0000ff,
             health: 100,
             damage: 8,
             speed: 250,
@@ -159,50 +177,29 @@ class MyGame extends Phaser.Scene {
             barY: 30
         });
 
-        // Player 2
         this.player2 = new Fighter(this, 600, 450, 'player2', controlsP2, {
+            tint: 0xff0000,
             health: 120,
             damage: 15,
             speed: 180,
-            jumpPower: -400,
+            jumpPower: -900,
             barX: 550,
             barY: 30
         });
 
-        // colisões com o chão
         this.physics.add.collider(this.player1, this.ground);
         this.physics.add.collider(this.player2, this.ground);
-
-        // animação andar
-        this.anims.create({
-            key: 'walk',
-            frames: this.anims.generateFrameNumbers('player1', { start: 0, end: 3 }),
-            frameRate: 10,
-            repeat: -1
-        });
-
-        // fundo
-        this.background = this.add.sprite(400, 300, 'bg')
-            .setOrigin(0.5, 0.5)
-            .setDepth(-1)
-            .setScale(3.1, 3);
-
-        this.anims.create({
-            key: 'bgAnim',
-            frames: this.anims.generateFrameNumbers('bg', { start: 0, end: 5 }),
-            frameRate: 6,
-            repeat: -1
-        });
-
-        this.background.play('bgAnim');
     }
 
     update() {
-        this.player1.move();
-        this.player2.move();
-
-        this.player1.attack(this.player2);
-        this.player2.attack(this.player1);
+        if (this.player1.active) {
+            this.player1.move();
+            this.player1.attack(this.player2);
+        }
+        if (this.player2.active) {
+            this.player2.move();
+            this.player2.attack(this.player1);
+        }
     }
 }
 

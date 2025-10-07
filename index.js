@@ -1,4 +1,3 @@
-// ===================== FIGHTER =====================
 class Fighter extends Phaser.Physics.Arcade.Sprite {
     constructor(scene, x, y, key, controls, attributes) {
         super(scene, x, y, key);
@@ -9,42 +8,37 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         this.originalTint = attributes.tint || 0xffffff;
         this.setTint(this.originalTint);
 
-        // ======== ATRIBUTOS ========
+        // Atributos principais
         this.health = attributes.health || 100;
         this.maxHealth = this.health;
         this.damage = attributes.damage || 10;
         this.speed = attributes.speed || 200;
         this.jumpPower = attributes.jumpPower || -350;
 
-        // ======== ENERGIA ========
+        // Energia
         this.energy = attributes.energy || 100;
         this.maxEnergy = this.energy;
         this.energyRegenRate = attributes.energyRegenRate || 10;
 
-        // ======== SPECIAL ATTACK ========
+        // Poder especial
         this.special = {
             cost: attributes.specialCost || 20,
             damage: attributes.specialDamage || 20,
-            velocity: attributes.specialVelocity || 400,
-            color: attributes.specialColor || 0x00ffff,
-            width: attributes.specialWidth || 20,
-            height: attributes.specialHeight || 10
+            velocity: attributes.specialVelocity || 400
         };
 
-        // ======== HIDDEN POWER ========
+        // Poder oculto
         this.hidden = {
             cost: attributes.hiddenCost || 40,
             damage: attributes.hiddenDamage || 50,
             velocity: attributes.hiddenVelocity || 600,
-            color: attributes.hiddenColor || 0xffff00,
-            width: attributes.hiddenWidth || 30,
-            height: attributes.hiddenHeight || 15
+            color: attributes.hiddenColor || 0xffff00
         };
 
         this.controls = controls;
         this.scene = scene;
 
-        // ======== BARRAS ========
+        // Barras de vida e energia
         this.healthBar = scene.add.graphics();
         this.barX = attributes.barX || 20;
         this.barY = attributes.barY || 30;
@@ -77,21 +71,18 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
     attack(target) {
         if (!this.active) return;
 
-        // ataque corpo a corpo
         if (Phaser.Input.Keyboard.JustDown(this.controls.attack)) {
             if (Phaser.Geom.Intersects.RectangleToRectangle(this.getBounds(), target.getBounds())) {
                 target.takeDamage(this.damage);
             }
         }
 
-        // special
         if (Phaser.Input.Keyboard.JustDown(this.controls.specialAttack)) {
             if (this.energy >= this.special.cost) {
                 this.shootSpecial(target);
             }
         }
 
-        // hidden
         if (Phaser.Input.Keyboard.JustDown(this.controls.hiddenAttack)) {
             if (this.energy >= this.hidden.cost) {
                 this.shootHidden(target);
@@ -104,24 +95,23 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         if (this.energy < 0) this.energy = 0;
         this.updateEnergyBar();
 
-        const projectile = this.scene.add.rectangle(
-            this.x,
-            this.y,
-            this.special.width,
-            this.special.height,
-            this.special.color
-        );
+        // cria o sprite animado do poder
+        const projectile = this.scene.add.sprite(this.x, 570, 'poder').setScale(1.5);
+        projectile.play('poder_anim');
         this.scene.physics.add.existing(projectile);
         projectile.body.allowGravity = false;
 
         const velocity = this.flipX ? -this.special.velocity : this.special.velocity;
         projectile.body.setVelocityX(velocity);
+        if (this.flipX) projectile.flipX = true;
 
+        // colisão
         this.scene.physics.add.overlap(projectile, target, (proj, targetHit) => {
             targetHit.takeDamage(this.special.damage);
             proj.destroy();
         });
 
+        // destrói o sprite após um tempo
         this.scene.time.delayedCall(2000, () => {
             if (projectile.active) projectile.destroy();
         });
@@ -135,8 +125,8 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         const hiddenPower = this.scene.add.rectangle(
             this.x,
             this.y - 10,
-            this.hidden.width,
-            this.hidden.height,
+            30,
+            15,
             this.hidden.color
         );
         this.scene.physics.add.existing(hiddenPower);
@@ -173,7 +163,7 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
     }
 
     regenEnergy(delta) {
-        this.energy += (this.energyRegenRate * delta) / 1000;
+        this.energy += (this.energyRegenRate * delta) / 600;
         if (this.energy > this.maxEnergy) this.energy = this.maxEnergy;
         this.updateEnergyBar();
     }
@@ -207,9 +197,10 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
     }
 }
 
-// ===================== ATRIBUTOS DOS PERSONAGENS =====================
+
+// atributos dos personagens
 const CHAR_ATTRIBUTES = {
-    char1: { health: 500, damage: 30, speed: 160, jumpPower: -500, specialDamage: 20, hiddenDamage: 400, specialCost: 1 },
+    Dave: { health: 500, damage: 30, speed: 160, jumpPower: -500, specialDamage: 20, hiddenDamage: 400, specialCost: 1 },
     char2: { health: 1120, damage: 8,  speed: 220, jumpPower: -550, specialDamage: 25, hiddenDamage: 35 },
     char3: { health: 90,  damage: 12, speed: 300, jumpPower: -600, specialDamage: 15, hiddenDamage: 45 },
     char4: { health: 150, damage: 6,  speed: 180, jumpPower: -450, specialDamage: 30, hiddenDamage: 50 },
@@ -217,7 +208,7 @@ const CHAR_ATTRIBUTES = {
     char6: { health: 890,  damage: 15, speed: 320, jumpPower: -650, specialDamage: 22, hiddenDamage: 55 }
 };
 
-// ===================== SELEÇÃO DE PERSONAGENS =====================
+
 class CharacterSelect extends Phaser.Scene {
     constructor() { super('CharacterSelect'); }
 
@@ -229,7 +220,6 @@ class CharacterSelect extends Phaser.Scene {
     }
 
     create() {
-        this.add.sprite(400, 300, 'bg').setDepth(-5).setScale(1.5);
         this.add.text(200, 40, 'Escolha 2 Personagens', { fontSize: '24px', fill: '#fff' });
 
         this.selectedP1 = null;
@@ -265,7 +255,7 @@ class CharacterSelect extends Phaser.Scene {
     }
 }
 
-// ===================== JOGO =====================
+
 class MyGame extends Phaser.Scene {
     constructor() { super('MyGame'); }
 
@@ -274,10 +264,24 @@ class MyGame extends Phaser.Scene {
         for (let i = 1; i <= 6; i++) {
             this.load.image('char' + i, 'assets/chars/char' + i + '.png');
         }
+
+        // spritesheet do poder
+        this.load.spritesheet('poder', 'assets/poder.png', {
+            frameWidth: 64,
+            frameHeight: 64
+        });
     }
 
     create(data) {
         this.add.sprite(400, 300, 'bg').setDepth(-5).setScale(1.5);
+
+        // cria a animação do poder
+        this.anims.create({
+            key: 'poder_anim',
+            frames: this.anims.generateFrameNumbers('poder', { start: 0, end: 3 }),
+            frameRate: 8,
+            repeat: -1
+        });
 
         const controlsP1 = {
             left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
@@ -294,7 +298,7 @@ class MyGame extends Phaser.Scene {
             jump: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
             attack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT),
             specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER),
-            hiddenAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.BACKSPACE)
+            hiddenAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P)
         };
 
         this.player1 = new Fighter(this, 200, 450, data.p1, controlsP1, {
@@ -324,7 +328,7 @@ class MyGame extends Phaser.Scene {
     }
 }
 
-// ===================== CONFIGURAÇÃO =====================
+
 const config = {
     type: Phaser.AUTO,
     width: 800,

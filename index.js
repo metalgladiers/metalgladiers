@@ -1,3 +1,4 @@
+// ===================== FIGHTER =====================
 class Fighter extends Phaser.Physics.Arcade.Sprite {
     constructor(scene, x, y, key, controls, attributes) {
         super(scene, x, y, key);
@@ -18,16 +19,26 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         // ======== ENERGIA ========
         this.energy = attributes.energy || 100;
         this.maxEnergy = this.energy;
-        this.energyRegenRate = 10;
+        this.energyRegenRate = attributes.energyRegenRate || 10;
 
         // ======== SPECIAL ATTACK ========
         this.special = {
             cost: attributes.specialCost || 20,
             damage: attributes.specialDamage || 20,
             velocity: attributes.specialVelocity || 400,
-            color: attributes.specialColor || 0xffffff,
+            color: attributes.specialColor || 0x00ffff,
             width: attributes.specialWidth || 20,
             height: attributes.specialHeight || 10
+        };
+
+        // ======== HIDDEN POWER ========
+        this.hidden = {
+            cost: attributes.hiddenCost || 40,
+            damage: attributes.hiddenDamage || 50,
+            velocity: attributes.hiddenVelocity || 600,
+            color: attributes.hiddenColor || 0xffff00,
+            width: attributes.hiddenWidth || 30,
+            height: attributes.hiddenHeight || 15
         };
 
         this.controls = controls;
@@ -39,18 +50,15 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         this.barY = attributes.barY || 30;
 
         this.energyBar = scene.add.graphics();
-        this.barEnergyX = attributes.barEnergyX || 10;
+        this.barEnergyX = attributes.barEnergyX || 20;
         this.barEnergyY = attributes.barEnergyY || 60;
 
         this.updateEnergyBar();
         this.updateHealthBar();
-
-        
     }
 
     move() {
         if (!this.active) return;
-
         this.setVelocityX(0);
 
         if (this.controls.left.isDown) {
@@ -69,28 +77,33 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
     attack(target) {
         if (!this.active) return;
 
+        // ataque corpo a corpo
         if (Phaser.Input.Keyboard.JustDown(this.controls.attack)) {
             if (Phaser.Geom.Intersects.RectangleToRectangle(this.getBounds(), target.getBounds())) {
                 target.takeDamage(this.damage);
             }
         }
 
+        // special
         if (Phaser.Input.Keyboard.JustDown(this.controls.specialAttack)) {
             if (this.energy >= this.special.cost) {
-                this.shootProjectile();
-            } else {
-                console.log(`${this.texture.key} sem energia!`);
+                this.shootSpecial(target);
+            }
+        }
+
+        // hidden
+        if (Phaser.Input.Keyboard.JustDown(this.controls.hiddenAttack)) {
+            if (this.energy >= this.hidden.cost) {
+                this.shootHidden(target);
             }
         }
     }
 
-    shootProjectile() {
-        // Gasta energia
+    shootSpecial(target) {
         this.energy -= this.special.cost;
         if (this.energy < 0) this.energy = 0;
         this.updateEnergyBar();
 
-        // Cria um retângulo colorido como poder
         const projectile = this.scene.add.rectangle(
             this.x,
             this.y,
@@ -98,39 +111,48 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
             this.special.height,
             this.special.color
         );
-
         this.scene.physics.add.existing(projectile);
         projectile.body.allowGravity = false;
 
         const velocity = this.flipX ? -this.special.velocity : this.special.velocity;
         projectile.body.setVelocityX(velocity);
 
-        // Detecta colisão com o oponente
-        const target = this.scene.player1 === this ? this.scene.player2 : this.scene.player1;
         this.scene.physics.add.overlap(projectile, target, (proj, targetHit) => {
             targetHit.takeDamage(this.special.damage);
             proj.destroy();
         });
 
-        // Destrói após 2 segundos
         this.scene.time.delayedCall(2000, () => {
             if (projectile.active) projectile.destroy();
         });
+    }
+
+    shootHidden(target) {
+        this.energy -= this.hidden.cost;
+        if (this.energy < 0) this.energy = 0;
+        this.updateEnergyBar();
 
         const hiddenPower = this.scene.add.rectangle(
             this.x,
-            this.y,
+            this.y - 10,
             this.hidden.width,
             this.hidden.height,
             this.hidden.color
         );
-
         this.scene.physics.add.existing(hiddenPower);
-            hiddenPower.body.allowGravity = false;
+        hiddenPower.body.allowGravity = false;
 
-            hiddenPower.body.setVelocityX(velocity + 10);
+        const velocity = this.flipX ? -this.hidden.velocity : this.hidden.velocity;
+        hiddenPower.body.setVelocityX(velocity);
 
-            this.scene.physics.add.overlap(hiddenPower, target)
+        this.scene.physics.add.overlap(hiddenPower, target, (proj, targetHit) => {
+            targetHit.takeDamage(this.hidden.damage);
+            proj.destroy();
+        });
+
+        this.scene.time.delayedCall(2500, () => {
+            if (hiddenPower.active) hiddenPower.destroy();
+        });
     }
 
     takeDamage(amount) {
@@ -142,7 +164,6 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
             this.destroy();
             this.healthBar.clear();
             this.energyBar.clear();
-            console.log(`${this.texture.key} foi derrotado!`);
         } else {
             this.setTint(0xff0000);
             this.scene.time.delayedCall(150, () => {
@@ -186,45 +207,76 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
     }
 }
 
+// ===================== ATRIBUTOS DOS PERSONAGENS =====================
+const CHAR_ATTRIBUTES = {
+    char1: { health: 500, damage: 30, speed: 160, jumpPower: -500, specialDamage: 20, hiddenDamage: 400, specialCost: 1 },
+    char2: { health: 1120, damage: 8,  speed: 220, jumpPower: -550, specialDamage: 25, hiddenDamage: 35 },
+    char3: { health: 90,  damage: 12, speed: 300, jumpPower: -600, specialDamage: 15, hiddenDamage: 45 },
+    char4: { health: 150, damage: 6,  speed: 180, jumpPower: -450, specialDamage: 30, hiddenDamage: 50 },
+    char5: { health: 110, damage: 9,  speed: 260, jumpPower: -500, specialDamage: 18, hiddenDamage: 42 },
+    char6: { health: 890,  damage: 15, speed: 320, jumpPower: -650, specialDamage: 22, hiddenDamage: 55 }
+};
 
-// ===================== CENA PRINCIPAL =====================
-
-class MyGame extends Phaser.Scene {
-    constructor() {
-        super('MyGame');
-    }
+// ===================== SELEÇÃO DE PERSONAGENS =====================
+class CharacterSelect extends Phaser.Scene {
+    constructor() { super('CharacterSelect'); }
 
     preload() {
         this.load.image('bg', 'assets/floresta.png');
-        this.textures.generate('player1', { data: ['2'], pixelWidth: 64, pixelHeight: 64 });
-        this.textures.generate('player2', { data: ['2'], pixelWidth: 64, pixelHeight: 64 });
+        for (let i = 1; i <= 6; i++) {
+            this.load.image('char' + i, 'assets/chars/char' + i + '.png');
+        }
     }
 
     create() {
-        // ======== BOTÃO DE REINICIAR ========
-const restartButton = this.add.text(370, 10, '🔄', {
-    fontSize: '28px',
-    fill: '#ffffff',
-    backgroundColor: '#000000',
-    padding: { x: 3, y: 5 },
-    fontStyle: 'bold'
-})
-.setInteractive()
-.setScrollFactor(0); // Fixa na tela (UI)
+        this.add.sprite(400, 300, 'bg').setDepth(-5).setScale(1.5);
+        this.add.text(200, 40, 'Escolha 2 Personagens', { fontSize: '24px', fill: '#fff' });
 
-// Efeito visual de hover
-restartButton.on('pointerover', () => {
-    restartButton.setStyle({ fill: '#00ff00', backgroundColor: '#222222' });
-});
-restartButton.on('pointerout', () => {
-    restartButton.setStyle({ fill: '#ffffff', backgroundColor: '#000000' });
-});
+        this.selectedP1 = null;
+        this.selectedP2 = null;
 
-// Ao clicar — reinicia a cena
-restartButton.on('pointerdown', () => {
-    this.scene.restart(); // 👈 Reinicia tudo
-});
+        const positions = [
+            { x: 150, y: 200 },
+            { x: 300, y: 200 },
+            { x: 450, y: 200 },
+            { x: 600, y: 200 },
+            { x: 225, y: 400 },
+            { x: 525, y: 400 }
+        ];
 
+        for (let i = 1; i <= 6; i++) {
+            const pos = positions[i - 1];
+            const sprite = this.add.sprite(pos.x, pos.y, 'char' + i).setInteractive();
+
+            sprite.on('pointerdown', () => {
+                if (!this.selectedP1) {
+                    this.selectedP1 = 'char' + i;
+                    sprite.setTint(0x0000ff);
+                } else if (!this.selectedP2 && this.selectedP1 !== 'char' + i) {
+                    this.selectedP2 = 'char' + i;
+                    sprite.setTint(0xff0000);
+                }
+
+                if (this.selectedP1 && this.selectedP2) {
+                    this.scene.start('MyGame', { p1: this.selectedP1, p2: this.selectedP2 });
+                }
+            });
+        }
+    }
+}
+
+// ===================== JOGO =====================
+class MyGame extends Phaser.Scene {
+    constructor() { super('MyGame'); }
+
+    preload() {
+        this.load.image('bg', 'assets/floresta.png');
+        for (let i = 1; i <= 6; i++) {
+            this.load.image('char' + i, 'assets/chars/char' + i + '.png');
+        }
+    }
+
+    create(data) {
         this.add.sprite(400, 300, 'bg').setDepth(-5).setScale(1.5);
 
         const controlsP1 = {
@@ -232,7 +284,8 @@ restartButton.on('pointerdown', () => {
             right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
             jump: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
             attack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R),
-            specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E)
+            specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
+            hiddenAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q)
         };
 
         const controlsP2 = {
@@ -240,41 +293,20 @@ restartButton.on('pointerdown', () => {
             right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
             jump: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
             attack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT),
-            specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER)
+            specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER),
+            hiddenAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.BACKSPACE)
         };
 
-        // ======== PLAYER 1 ========
-        this.player1 = new Fighter(this, 200, 450, 'player1', controlsP1, {
+        this.player1 = new Fighter(this, 200, 450, data.p1, controlsP1, {
+            ...CHAR_ATTRIBUTES[data.p1],
             tint: 0x0000ff,
-            health: 100,
-            damage: 8,
-            speed: 250,
-            jumpPower: -500,
-            barX: 50,
-            barY: 30,
-            barEnergyX: 50,
-            barEnergyY: 60,
-            specialDamage: 15,
-            specialCost: 15,
-            specialVelocity: 500,
-            specialColor: 0x00ffff // azul-claro
+            barX: 50, barY: 30, barEnergyX: 50, barEnergyY: 60
         });
 
-        // ======== PLAYER 2 ========
-        this.player2 = new Fighter(this, 600, 450, 'player2', controlsP2, {
+        this.player2 = new Fighter(this, 600, 450, data.p2, controlsP2, {
+            ...CHAR_ATTRIBUTES[data.p2],
             tint: 0xff0000,
-            health: 120,
-            damage: 15,
-            speed: 180,
-            jumpPower: -900,
-            barX: 550,
-            barY: 30,
-            barEnergyX: 550,
-            barEnergyY: 60,
-            specialDamage: 35,
-            specialCost: 30,
-            specialVelocity: 300,
-            specialColor: 0xff6600 // laranja-fogo
+            barX: 550, barY: 30, barEnergyX: 550, barEnergyY: 60
         });
     }
 
@@ -292,9 +324,7 @@ restartButton.on('pointerdown', () => {
     }
 }
 
-
-// ===================== CONFIGURAÇÃO DO JOGO =====================
-
+// ===================== CONFIGURAÇÃO =====================
 const config = {
     type: Phaser.AUTO,
     width: 800,
@@ -303,7 +333,7 @@ const config = {
         default: 'arcade',
         arcade: { gravity: { y: 1100 }, debug: false }
     },
-    scene: MyGame
+    scene: [CharacterSelect, MyGame]
 };
 
 new Phaser.Game(config);

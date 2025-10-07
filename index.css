@@ -4,12 +4,12 @@
     background: white;
     display: flex;
     justify-content: center;
+    margin: 0;
   }
 
   canvas {
     padding: 0;
-    height: 95%;
-    width: 90%;
+    height: 99%;
+    width: 100%;
     border: solid black;
-    margin-top: 1%;
   }

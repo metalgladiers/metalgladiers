@@ -55,21 +55,17 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         if (!this.active) return;
         this.setVelocityX(0);
 
-       if (this.controls.left.isDown) {
-        this.setVelocityX(-this.speed);
-        this.flipX = true;
-        this.anims.play(this.texture.key + '_walk', true);
-    } else if (this.controls.right.isDown) {
-        this.setVelocityX(this.speed);
-        this.flipX = false;
-        this.anims.play(this.texture.key + '_walk', true);
-    } else {
-        this.anims.play(this.texture.key + '_idle', true);
-    }
+        if (this.controls.left.isDown) {
+            this.setVelocityX(-this.speed);
+            this.flipX = true;
+        } else if (this.controls.right.isDown) {
+            this.setVelocityX(this.speed);
+            this.flipX = false;
+        }
 
-    if (this.controls.jump.isDown && this.body.onFloor()) {
-        this.setVelocityY(this.jumpPower);
-    }
+        if (this.controls.jump.isDown && this.body.onFloor()) {
+            this.setVelocityY(this.jumpPower);
+        }
     }
 
     attack(target) {
@@ -99,8 +95,7 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         if (this.energy < 0) this.energy = 0;
         this.updateEnergyBar();
 
-        // cria o sprite animado do poder
-        const projectile = this.scene.add.sprite(this.x, 570, 'poder').setScale(1.5);
+        const projectile = this.scene.add.sprite(this.x, this.y - 20, 'poder').setScale(4);
         projectile.play('poder_anim');
         this.scene.physics.add.existing(projectile);
         projectile.body.allowGravity = false;
@@ -109,13 +104,11 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         projectile.body.setVelocityX(velocity);
         if (this.flipX) projectile.flipX = true;
 
-        // colisão
         this.scene.physics.add.overlap(projectile, target, (proj, targetHit) => {
             targetHit.takeDamage(this.special.damage);
             proj.destroy();
         });
 
-        // destrói o sprite após um tempo
         this.scene.time.delayedCall(2000, () => {
             if (projectile.active) projectile.destroy();
         });
@@ -204,7 +197,7 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
 
 // atributos dos personagens
 const CHAR_ATTRIBUTES = {
-    Dave: { health: 500, damage: 30, speed: 160, jumpPower: -500, specialDamage: 20, hiddenDamage: 400, specialCost: 1 },
+    char1: { health: 500, damage: 30, speed: 160, jumpPower: -500, specialDamage: 20, hiddenDamage: 400, specialCost: 1 },
     char2: { health: 1120, damage: 8,  speed: 220, jumpPower: -550, specialDamage: 25, hiddenDamage: 35 },
     char3: { health: 90,  damage: 12, speed: 300, jumpPower: -600, specialDamage: 15, hiddenDamage: 45 },
     char4: { health: 150, damage: 6,  speed: 180, jumpPower: -450, specialDamage: 30, hiddenDamage: 50 },
@@ -218,9 +211,14 @@ class CharacterSelect extends Phaser.Scene {
 
     preload() {
         this.load.image('bg', 'assets/floresta.png');
-        for (let i = 1; i <= 6; i++) {
-            this.load.image('char' + i, 'assets/chars/char' + i + '.png');
-        }
+        
+        // carrega os 6 sprites únicos
+        this.load.image('char1', 'assets/players/PlayerBlue.png');
+        this.load.image('char2', 'assets/players/PlayerViolet.png');
+        this.load.image('char3', 'assets/players/PlayerGreen.png');
+        this.load.image('char4', 'assets/players/PlayerCyan.png');
+        this.load.image('char5', 'assets/players/PlayerRed.png');
+        this.load.image('char6', 'assets/players/PlayerOrange.png');
     }
 
     create() {
@@ -265,16 +263,14 @@ class MyGame extends Phaser.Scene {
 
     preload() {
         this.load.image('bg', 'assets/floresta.png');
-        for (let i = 1; i <= 6; i++) {
-            this.load.image('char' + i, 'assets/chars/char' + i + '.png');
-        }
 
-        this.load.spritesheet('charBlue', 'assets/players/PlayerBlue.png', { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet('charCyan', 'assets/players/PlayerCyan.png', { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet('charGreen', 'assets/players/PlayerGreen.png', { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet('charOrange', 'assets/players/PlayerOrange.png', { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet('charRed', 'assets/players/PlayerRed.png', { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet('charViolet', 'assets/players/PlayerViolet.png', { frameWidth: 32, frameHeight: 32 });
+        // cada personagem com seu sprite único (mesmo mapeamento que no CharacterSelect)
+        this.load.image('char1', 'assets/players/PlayerBlue.png');
+        this.load.image('char2', 'assets/players/PlayerViolet.png');
+        this.load.image('char3', 'assets/players/PlayerGreen.png');
+        this.load.image('char4', 'assets/players/PlayerCyan.png');
+        this.load.image('char5', 'assets/players/PlayerRed.png');
+        this.load.image('char6', 'assets/players/PlayerOrange.png');
 
         // spritesheet do poder
         this.load.spritesheet('poder', 'assets/poder.png', {
@@ -286,21 +282,6 @@ class MyGame extends Phaser.Scene {
     create(data) {
         this.add.sprite(400, 300, 'bg').setDepth(-5).setScale(1.5);
 
-         this.anims.create({
-        key: 'char1_idle',
-        frames: this.anims.generateFrameNumbers('charBlue', { start: 0, end: 3 }),
-        frameRate: 8,
-        repeat: -1
-    });
-
-    this.anims.create({
-        key: 'char1_walk',
-        frames: this.anims.generateFrameNumbers('charBlue', { start: 4, end: 7 }),
-        frameRate: 10,
-        repeat: -1
-    });
-
-        // cria a animação do poder
         this.anims.create({
             key: 'poder_anim',
             frames: this.anims.generateFrameNumbers('poder', { start: 0, end: 3 }),
@@ -308,33 +289,36 @@ class MyGame extends Phaser.Scene {
             repeat: -1
         });
 
-        const controlsP1 = {
-            left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
-            right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
-            jump: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
-            attack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R),
-            specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
-            hiddenAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q)
-        };
+        // Controles P1
+const controlsP1 = {
+    left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+    right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+    jump: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
+    attack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q),
+    specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
+    hiddenAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S)
+};
 
-        const controlsP2 = {
-            left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-            right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
-            jump: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
-            attack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT),
-            specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER),
-            hiddenAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P)
-        };
+// Controles P2
+const controlsP2 = {
+    left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
+    right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
+    jump: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
+    attack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P),
+    specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER),
+    hiddenAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN)
+};
 
+
+        // Player 1
         this.player1 = new Fighter(this, 200, 450, data.p1, controlsP1, {
             ...CHAR_ATTRIBUTES[data.p1],
-            tint: 0x0000ff,
             barX: 50, barY: 30, barEnergyX: 50, barEnergyY: 60
         });
 
+        // Player 2
         this.player2 = new Fighter(this, 600, 450, data.p2, controlsP2, {
             ...CHAR_ATTRIBUTES[data.p2],
-            tint: 0xff0000,
             barX: 550, barY: 30, barEnergyX: 550, barEnergyY: 60
         });
     }

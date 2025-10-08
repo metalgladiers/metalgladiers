@@ -55,17 +55,21 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         if (!this.active) return;
         this.setVelocityX(0);
 
-        if (this.controls.left.isDown) {
-            this.setVelocityX(-this.speed);
-            this.flipX = true;
-        } else if (this.controls.right.isDown) {
-            this.setVelocityX(this.speed);
-            this.flipX = false;
-        }
+       if (this.controls.left.isDown) {
+        this.setVelocityX(-this.speed);
+        this.flipX = true;
+        this.anims.play(this.texture.key + '_walk', true);
+    } else if (this.controls.right.isDown) {
+        this.setVelocityX(this.speed);
+        this.flipX = false;
+        this.anims.play(this.texture.key + '_walk', true);
+    } else {
+        this.anims.play(this.texture.key + '_idle', true);
+    }
 
-        if (this.controls.jump.isDown && this.body.onFloor()) {
-            this.setVelocityY(this.jumpPower);
-        }
+    if (this.controls.jump.isDown && this.body.onFloor()) {
+        this.setVelocityY(this.jumpPower);
+    }
     }
 
     attack(target) {
@@ -265,6 +269,13 @@ class MyGame extends Phaser.Scene {
             this.load.image('char' + i, 'assets/chars/char' + i + '.png');
         }
 
+        this.load.spritesheet('charBlue', 'assets/players/PlayerBlue.png', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('charCyan', 'assets/players/PlayerCyan.png', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('charGreen', 'assets/players/PlayerGreen.png', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('charOrange', 'assets/players/PlayerOrange.png', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('charRed', 'assets/players/PlayerRed.png', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('charViolet', 'assets/players/PlayerViolet.png', { frameWidth: 32, frameHeight: 32 });
+
         // spritesheet do poder
         this.load.spritesheet('poder', 'assets/poder.png', {
             frameWidth: 64,
@@ -274,6 +285,20 @@ class MyGame extends Phaser.Scene {
 
     create(data) {
         this.add.sprite(400, 300, 'bg').setDepth(-5).setScale(1.5);
+
+         this.anims.create({
+        key: 'char1_idle',
+        frames: this.anims.generateFrameNumbers('charBlue', { start: 0, end: 3 }),
+        frameRate: 8,
+        repeat: -1
+    });
+
+    this.anims.create({
+        key: 'char1_walk',
+        frames: this.anims.generateFrameNumbers('charBlue', { start: 4, end: 7 }),
+        frameRate: 10,
+        repeat: -1
+    });
 
         // cria a animação do poder
         this.anims.create({

@@ -95,7 +95,7 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         if (this.energy < 0) this.energy = 0;
         this.updateEnergyBar();
 
-        const projectile = this.scene.add.sprite(this.x, this.y - 20, 'poder').setScale(4);
+        const projectile = this.scene.add.sprite(this.x, this.y - 20, 'poder');
         projectile.play('poder_anim');
         this.scene.physics.add.existing(projectile);
         projectile.body.allowGravity = false;
@@ -118,29 +118,41 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         this.energy -= this.hidden.cost;
         if (this.energy < 0) this.energy = 0;
         this.updateEnergyBar();
-
-        const hiddenPower = this.scene.add.rectangle(
-            this.x,
-            this.y - 10,
-            30,
-            15,
-            this.hidden.color
-        );
-        this.scene.physics.add.existing(hiddenPower);
-        hiddenPower.body.allowGravity = false;
-
-        const velocity = this.flipX ? -this.hidden.velocity : this.hidden.velocity;
-        hiddenPower.body.setVelocityX(velocity);
-
-        this.scene.physics.add.overlap(hiddenPower, target, (proj, targetHit) => {
-            targetHit.takeDamage(this.hidden.damage);
-            proj.destroy();
+    
+        // toca a animação especial do personagem
+        this.play('specialanim');
+    
+        // quando a animação terminar, cria o poder oculto
+        this.once('animationcomplete-specialanim', () => {
+            const hiddenPower = this.scene.add.sprite(this.x, this.y - 10, 'hiddenpower');
+            hiddenPower.play('hidden_anim');
+    
+            this.scene.physics.add.existing(hiddenPower);
+            hiddenPower.body.allowGravity = false;
+    
+            const velocity = this.flipX ? -this.hidden.velocity : this.hidden.velocity;
+            hiddenPower.body.setVelocityX(velocity);
+            if (this.flipX) hiddenPower.flipX = true;
+    
+            this.scene.physics.add.overlap(hiddenPower, target, (proj, targetHit) => {
+                targetHit.takeDamage(this.hidden.damage);
+                proj.destroy();
+            });
+    
+            this.scene.time.delayedCall(2500, () => {
+                if (hiddenPower.active) hiddenPower.destroy();
+            });
+    
+            // 🔹 Depois da animação, volta para "idle"
+            if (this.anims.exists('idle')) {
+                this.play('idle');
+            } else {
+                // fallback: mostra o frame base do sprite
+                this.setTexture(this.texture.key);
+            }
         });
-
-        this.scene.time.delayedCall(2500, () => {
-            if (hiddenPower.active) hiddenPower.destroy();
-        });
-    }
+    }    
+    
 
     takeDamage(amount) {
         this.health -= amount;
@@ -197,12 +209,12 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
 
 // atributos dos personagens
 const CHAR_ATTRIBUTES = {
-    char1: { health: 500, damage: 30, speed: 160, jumpPower: -500, specialDamage: 20, hiddenDamage: 400, specialCost: 1 },
-    char2: { health: 1120, damage: 8,  speed: 220, jumpPower: -550, specialDamage: 25, hiddenDamage: 35 },
-    char3: { health: 90,  damage: 12, speed: 300, jumpPower: -600, specialDamage: 15, hiddenDamage: 45 },
-    char4: { health: 150, damage: 6,  speed: 180, jumpPower: -450, specialDamage: 30, hiddenDamage: 50 },
-    char5: { health: 110, damage: 9,  speed: 260, jumpPower: -500, specialDamage: 18, hiddenDamage: 42 },
-    char6: { health: 890,  damage: 15, speed: 320, jumpPower: -650, specialDamage: 22, hiddenDamage: 55 }
+    char1: { health: 7000, damage: 30, speed: 160, jumpPower: -500, specialDamage: 200, hiddenDamage: 4000, specialCost: 100 },
+    char2: { health: 1000, damage: 8,  speed: 220, jumpPower: -550, specialDamage: 25, hiddenDamage: 35 },
+    char3: { health: 900,  damage: 12, speed: 300, jumpPower: -600, specialDamage: 15, hiddenDamage: 45 },
+    char4: { health: 650, damage: 6,  speed: 180, jumpPower: -450, specialDamage: 30, hiddenDamage: 50 },
+    char5: { health: 800, damage: 9,  speed: 260, jumpPower: -500, specialDamage: 18, hiddenDamage: 42 },
+    char6: { health: 600,  damage: 15, speed: 320, jumpPower: -650, specialDamage: 22, hiddenDamage: 55 }
 };
 
 
@@ -274,13 +286,32 @@ class MyGame extends Phaser.Scene {
 
         // spritesheet do poder
         this.load.spritesheet('poder', 'assets/poder.png', {
-            frameWidth: 64,
-            frameHeight: 64
+            frameWidth: 192,
+            frameHeight: 192
         });
+
+        this.load.spritesheet('hiddenpower', 'assets/HiddenPower.png', {
+            frameWidth: 96,
+            frameHeight: 96
+        })
+
+        this.load.spritesheet('poderAnimation', 'assets/poderAnimation.png', {
+            frameWidth: 160,
+            frameHeight: 160
+        })
     }
+
+
 
     create(data) {
         this.add.sprite(400, 300, 'bg').setDepth(-5).setScale(1.5);
+
+        this.anims.create({
+            key: 'specialanim',
+            frames: this.anims.generateFrameNumbers('poderAnimation', {start: 0, end: 20}),
+            frameRate: 20,
+            repeat: 0
+        })
 
         this.anims.create({
             key: 'poder_anim',
@@ -288,6 +319,13 @@ class MyGame extends Phaser.Scene {
             frameRate: 8,
             repeat: -1
         });
+
+        this.anims.create({
+            key: 'hidden_anim',
+            frames: this.anims.generateFrameNumbers('hiddenpower', {start: 0, end: 8}),
+            frameRate: 8,
+            repeat: -1
+        })
 
         // Controles P1
 const controlsP1 = {
@@ -344,7 +382,7 @@ const config = {
     height: 600,
     physics: {
         default: 'arcade',
-        arcade: { gravity: { y: 1100 }, debug: false }
+        arcade: { gravity: { y: 1100 }, debug: true }
     },
     scene: [CharacterSelect, MyGame]
 };

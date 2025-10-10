@@ -7,27 +7,25 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         this.setCollideWorldBounds(true);
         this.originalTint = attributes.tint || 0xffffff;
         this.setTint(this.originalTint);
+        this.baseTextureKey = key;
+        this.specialAttackUsing = false;
 
-        // Atributos principais
         this.health = attributes.health || 100;
         this.maxHealth = this.health;
         this.damage = attributes.damage || 10;
         this.speed = attributes.speed || 200;
         this.jumpPower = attributes.jumpPower || -350;
 
-        // Energia
         this.energy = attributes.energy || 100;
         this.maxEnergy = this.energy;
         this.energyRegenRate = attributes.energyRegenRate || 10;
 
-        // Poder especial
         this.special = {
             cost: attributes.specialCost || 20,
             damage: attributes.specialDamage || 20,
             velocity: attributes.specialVelocity || 400
         };
 
-        // Poder oculto
         this.hidden = {
             cost: attributes.hiddenCost || 40,
             damage: attributes.hiddenDamage || 50,
@@ -38,7 +36,6 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         this.controls = controls;
         this.scene = scene;
 
-        // Barras de vida e energia
         this.healthBar = scene.add.graphics();
         this.barX = attributes.barX || 20;
         this.barY = attributes.barY || 30;
@@ -86,73 +83,60 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         if (Phaser.Input.Keyboard.JustDown(this.controls.hiddenAttack)) {
             if (this.energy >= this.hidden.cost) {
                 this.shootHidden(target);
+                this.specialAttackUsing = true;
             }
         }
     }
 
-    shootSpecial(target) {
-        this.energy -= this.special.cost;
-        if (this.energy < 0) this.energy = 0;
-        this.updateEnergyBar();
-
-        const projectile = this.scene.add.sprite(this.x, this.y - 20, 'poder');
-        projectile.play('poder_anim');
-        this.scene.physics.add.existing(projectile);
-        projectile.body.allowGravity = false;
-
-        const velocity = this.flipX ? -this.special.velocity : this.special.velocity;
-        projectile.body.setVelocityX(velocity);
-        if (this.flipX) projectile.flipX = true;
-
-        this.scene.physics.add.overlap(projectile, target, (proj, targetHit) => {
-            targetHit.takeDamage(this.special.damage);
-            proj.destroy();
-        });
-
-        this.scene.time.delayedCall(2000, () => {
-            if (projectile.active) projectile.destroy();
-        });
+    shootSpecial(target) 
+    { this.energy -= this.special.cost; 
+        if (this.energy < 0) this.energy = 0; 
+        this.updateEnergyBar(); 
+        const projectile = this.scene.add.sprite(this.x, this.y - 20, 'poder'); 
+        projectile.play('poder_anim'); this.scene.physics.add.existing(projectile); 
+        projectile.body.allowGravity = false; 
+        const velocity = this.flipX ? -this.special.velocity : this.special.velocity; 
+        projectile.body.setVelocityX(velocity); if (this.flipX) projectile.flipX = true; 
+        this.scene.physics.add.overlap(projectile, target, (proj, targetHit) => { targetHit.takeDamage(this.special.damage); proj.destroy(); }); this.scene.time.delayedCall(2000, () => { if (projectile.active) projectile.destroy(); }); 
     }
 
     shootHidden(target) {
-        this.energy -= this.hidden.cost;
-        if (this.energy < 0) this.energy = 0;
-        this.updateEnergyBar();
-    
-        // toca a animação especial do personagem
-        this.play('specialanim');
-    
-        // quando a animação terminar, cria o poder oculto
-        this.once('animationcomplete-specialanim', () => {
-            const hiddenPower = this.scene.add.sprite(this.x, this.y - 10, 'hiddenpower');
-            hiddenPower.play('hidden_anim');
-    
-            this.scene.physics.add.existing(hiddenPower);
-            hiddenPower.body.allowGravity = false;
-    
-            const velocity = this.flipX ? -this.hidden.velocity : this.hidden.velocity;
-            hiddenPower.body.setVelocityX(velocity);
-            if (this.flipX) hiddenPower.flipX = true;
-    
-            this.scene.physics.add.overlap(hiddenPower, target, (proj, targetHit) => {
-                targetHit.takeDamage(this.hidden.damage);
-                proj.destroy();
+        if (this.specialAttackUsing === false) {
+            this.energy -= this.hidden.cost;
+            if (this.energy < 0) this.energy = 0;
+            this.updateEnergyBar();
+
+            this.setVelocity(0, 0);
+            this.play('specialanim');
+
+            this.once('animationcomplete-specialanim', () => {
+                const hiddenPower = this.scene.add.sprite(this.x, this.y - 10, 'hiddenpower');
+                hiddenPower.play('hidden_anim');
+
+                this.scene.physics.add.existing(hiddenPower);
+                hiddenPower.body.allowGravity = false;
+
+                const velocity = this.flipX ? -this.hidden.velocity : this.hidden.velocity;
+                hiddenPower.body.setVelocityX(velocity);
+                if (this.flipX) hiddenPower.flipX = true;
+
+                this.scene.physics.add.overlap(hiddenPower, target, (proj, targetHit) => {
+                    targetHit.takeDamage(this.hidden.damage);
+                    proj.destroy();
+                });
+
+                this.scene.time.delayedCall(2500, () => {
+                    if (hiddenPower.active) hiddenPower.destroy();
+                });
+
+                this.anims.stop();
+                this.setTexture(this.baseTextureKey);
+                this.setFrame(0);
+                this.setTint(this.originalTint);
+                this.specialAttackUsing = false;
             });
-    
-            this.scene.time.delayedCall(2500, () => {
-                if (hiddenPower.active) hiddenPower.destroy();
-            });
-    
-            // 🔹 Depois da animação, volta para "idle"
-            if (this.anims.exists('idle')) {
-                this.play('idle');
-            } else {
-                // fallback: mostra o frame base do sprite
-                this.setTexture(this.texture.key);
-            }
-        });
-    }    
-    
+        }
+    }
 
     takeDamage(amount) {
         this.health -= amount;
@@ -160,9 +144,15 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
         this.updateHealthBar();
 
         if (this.health <= 0) {
-            this.destroy();
-            this.healthBar.clear();
-            this.energyBar.clear();
+            if (this.scene && this.scene.events) {
+                this.scene.events.emit('fighterDead', this);
+            }
+
+            this.scene.time.delayedCall(200, () => {
+                if (this.healthBar) this.healthBar.clear();
+                if (this.energyBar) this.energyBar.clear();
+                if (this.active) this.destroy();
+            });
         } else {
             this.setTint(0xff0000);
             this.scene.time.delayedCall(150, () => {
@@ -170,6 +160,7 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
             });
         }
     }
+
 
     regenEnergy(delta) {
         this.energy += (this.energyRegenRate * delta) / 600;
@@ -207,14 +198,13 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
 }
 
 
-// atributos dos personagens
 const CHAR_ATTRIBUTES = {
-    char1: { health: 7000, damage: 30, speed: 160, jumpPower: -500, specialDamage: 200, hiddenDamage: 4000, specialCost: 100 },
-    char2: { health: 1000, damage: 8,  speed: 220, jumpPower: -550, specialDamage: 25, hiddenDamage: 35 },
-    char3: { health: 900,  damage: 12, speed: 300, jumpPower: -600, specialDamage: 15, hiddenDamage: 45 },
-    char4: { health: 650, damage: 6,  speed: 180, jumpPower: -450, specialDamage: 30, hiddenDamage: 50 },
-    char5: { health: 800, damage: 9,  speed: 260, jumpPower: -500, specialDamage: 18, hiddenDamage: 42 },
-    char6: { health: 600,  damage: 15, speed: 320, jumpPower: -650, specialDamage: 22, hiddenDamage: 55 }
+    char1: { health: 7000, damage: 30, speed: 160, jumpPower: -500, specialDamage: 200, hiddenDamage: 4000, specialCost: 1 },
+    char2: { health: 1000, damage: 8, speed: 220, jumpPower: -550, specialDamage: 25, hiddenDamage: 35 },
+    char3: { health: 900, damage: 12, speed: 300, jumpPower: -600, specialDamage: 15, hiddenDamage: 45 },
+    char4: { health: 650, damage: 6, speed: 180, jumpPower: -450, specialDamage: 30, hiddenDamage: 50 },
+    char5: { health: 800, damage: 9, speed: 260, jumpPower: -500, specialDamage: 18, hiddenDamage: 42 },
+    char6: { health: 600, damage: 15, speed: 320, jumpPower: -650, specialDamage: 22, hiddenDamage: 55 }
 };
 
 
@@ -223,8 +213,7 @@ class CharacterSelect extends Phaser.Scene {
 
     preload() {
         this.load.image('bg', 'assets/floresta.png');
-        
-        // carrega os 6 sprites únicos
+
         this.load.image('char1', 'assets/players/PlayerBlue.png');
         this.load.image('char2', 'assets/players/PlayerViolet.png');
         this.load.image('char3', 'assets/players/PlayerGreen.png');
@@ -276,7 +265,6 @@ class MyGame extends Phaser.Scene {
     preload() {
         this.load.image('bg', 'assets/floresta.png');
 
-        // cada personagem com seu sprite único (mesmo mapeamento que no CharacterSelect)
         this.load.image('char1', 'assets/players/PlayerBlue.png');
         this.load.image('char2', 'assets/players/PlayerViolet.png');
         this.load.image('char3', 'assets/players/PlayerGreen.png');
@@ -284,10 +272,9 @@ class MyGame extends Phaser.Scene {
         this.load.image('char5', 'assets/players/PlayerRed.png');
         this.load.image('char6', 'assets/players/PlayerOrange.png');
 
-        // spritesheet do poder
         this.load.spritesheet('poder', 'assets/poder.png', {
-            frameWidth: 192,
-            frameHeight: 192
+            frameWidth: 64,
+            frameHeight: 64
         });
 
         this.load.spritesheet('hiddenpower', 'assets/HiddenPower.png', {
@@ -299,16 +286,15 @@ class MyGame extends Phaser.Scene {
             frameWidth: 160,
             frameHeight: 160
         })
+
     }
-
-
 
     create(data) {
         this.add.sprite(400, 300, 'bg').setDepth(-5).setScale(1.5);
 
         this.anims.create({
             key: 'specialanim',
-            frames: this.anims.generateFrameNumbers('poderAnimation', {start: 0, end: 20}),
+            frames: this.anims.generateFrameNumbers('poderAnimation', { start: 0, end: 20 }),
             frameRate: 20,
             repeat: 0
         })
@@ -322,43 +308,56 @@ class MyGame extends Phaser.Scene {
 
         this.anims.create({
             key: 'hidden_anim',
-            frames: this.anims.generateFrameNumbers('hiddenpower', {start: 0, end: 8}),
+            frames: this.anims.generateFrameNumbers('hiddenpower', { start: 0, end: 8 }),
             frameRate: 8,
             repeat: -1
         })
 
-        // Controles P1
-const controlsP1 = {
-    left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-    right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
-    jump: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
-    attack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q),
-    specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
-    hiddenAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S)
-};
+        const controlsP1 = {
+            left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+            right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+            jump: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
+            attack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q),
+            specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
+            hiddenAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S)
+        };
 
-// Controles P2
-const controlsP2 = {
-    left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
-    right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
-    jump: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
-    attack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P),
-    specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER),
-    hiddenAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN)
-};
+        const controlsP2 = {
+            left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
+            right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
+            jump: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
+            attack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P),
+            specialAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER),
+            hiddenAttack: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN)
+        };
 
 
-        // Player 1
         this.player1 = new Fighter(this, 200, 450, data.p1, controlsP1, {
             ...CHAR_ATTRIBUTES[data.p1],
             barX: 50, barY: 30, barEnergyX: 50, barEnergyY: 60
         });
+        this.player1.body.setSize(this.player1.width * 0.6, this.player1.height * 0.8);
+        this.player1.body.setOffset(this.player1.width * 0.2, this.player1.height * 0.1);
 
-        // Player 2
+
         this.player2 = new Fighter(this, 600, 450, data.p2, controlsP2, {
             ...CHAR_ATTRIBUTES[data.p2],
             barX: 550, barY: 30, barEnergyX: 550, barEnergyY: 60
         });
+        this.player2.body.setSize(this.player2.width * 0.6, this.player2.height * 0.8);
+        this.player2.body.setOffset(this.player2.width * 0.2, this.player2.height * 0.1);
+
+        this.events.on('fighterDead', (fighter) => {
+            this.time.delayedCall(1000, () => {
+                this.scene.start('CharacterSelect');
+            });
+        });
+
+        this.add.text(330, 40, 'Reiniciar', { fontSize: '24px', fill: '#000000' })
+        .setInteractive({ useHandCursor: true }) // deixa clicável e mostra o cursor de mão
+.on('pointerdown', () => {
+    this.scene.restart(); // reinicia a cena atual
+});
     }
 
     update(time, delta) {

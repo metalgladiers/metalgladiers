@@ -92,7 +92,12 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
     { this.energy -= this.special.cost; 
         if (this.energy < 0) this.energy = 0; 
         this.updateEnergyBar(); 
-        const projectile = this.scene.add.sprite(this.x, this.y - 20, 'poder'); 
+       const projectile = this.scene.physics.add.sprite(this.x, this.y - 20, 'poder');
+if (this === this.scene.player1)
+    this.scene.projectilesP1.add(projectile);
+else
+    this.scene.projectilesP2.add(projectile);
+
         projectile.play('poder_anim'); this.scene.physics.add.existing(projectile); 
         projectile.body.allowGravity = false; 
         const velocity = this.flipX ? -this.special.velocity : this.special.velocity; 
@@ -111,6 +116,12 @@ class Fighter extends Phaser.Physics.Arcade.Sprite {
 
             this.once('animationcomplete-specialanim', () => {
                 const hiddenPower = this.scene.add.sprite(this.x, this.y - 10, 'hiddenpower');
+                this.scene.physics.add.existing(hiddenPower);
+if (this === this.scene.player1)
+    this.scene.projectilesP1.add(hiddenPower);
+else
+    this.scene.projectilesP2.add(hiddenPower);
+
                 hiddenPower.play('hidden_anim');
 
                 this.scene.physics.add.existing(hiddenPower);
@@ -223,6 +234,7 @@ class CharacterSelect extends Phaser.Scene {
     }
 
     create() {
+        this.add.sprite(400, 300, 'bg').setDepth(-5).setScale(1.5);
         this.add.text(200, 40, 'Escolha 2 Personagens', { fontSize: '24px', fill: '#fff' });
 
         this.selectedP1 = null;
@@ -268,7 +280,10 @@ class MyGame extends Phaser.Scene {
         this.load.image('char1', 'assets/players/PlayerBlue.png');
         this.load.image('char2', 'assets/players/PlayerViolet.png');
         this.load.image('char3', 'assets/players/PlayerGreen.png');
-        this.load.image('char4', 'assets/players/PlayerCyan.png');
+        this.load.spritesheet('char4', 'assets/players/PlayerCyanSheet.png', {
+            frameWidth: 160,
+            frameHeight: 160
+        })
         this.load.image('char5', 'assets/players/PlayerRed.png');
         this.load.image('char6', 'assets/players/PlayerOrange.png');
 
@@ -287,10 +302,33 @@ class MyGame extends Phaser.Scene {
             frameHeight: 160
         })
 
+        this.load.audio('trilhafight', 'assets/Musics/Trilha Jogo.mp3')
+
     }
 
     create(data) {
+        this.trilha = this.sound.add('trilhafight', { loop: true, volume: 0.5 });
+this.trilha.play();
+
         this.add.sprite(400, 300, 'bg').setDepth(-5).setScale(1.5);
+
+        // Grupos para armazenar projéteis
+this.projectilesP1 = this.physics.add.group();
+this.projectilesP2 = this.physics.add.group();
+
+this.anims.create({
+    key: 'char4_idle',
+    frames: this.anims.generateFrameNumbers('char4', { start: 0, end: 8 }),
+    frameRate: 8,
+    repeat: -1
+});
+
+
+// Colisão entre projéteis dos jogadores
+this.physics.add.collider(this.projectilesP1, this.projectilesP2, (p1, p2) => {
+    p1.destroy();
+    p2.destroy();
+});
 
         this.anims.create({
             key: 'specialanim',
@@ -344,6 +382,11 @@ class MyGame extends Phaser.Scene {
             ...CHAR_ATTRIBUTES[data.p2],
             barX: 550, barY: 30, barEnergyX: 550, barEnergyY: 60
         });
+
+        if (data.p1 === 'char4') this.player1.play('char4_idle');
+if (data.p2 === 'char4') this.player2.play('char4_idle');
+
+
         this.player2.body.setSize(this.player2.width * 0.6, this.player2.height * 0.8);
         this.player2.body.setOffset(this.player2.width * 0.2, this.player2.height * 0.1);
 
@@ -354,9 +397,9 @@ class MyGame extends Phaser.Scene {
         });
 
         this.add.text(330, 40, 'Reiniciar', { fontSize: '24px', fill: '#000000' })
-        .setInteractive({ useHandCursor: true }) // deixa clicável e mostra o cursor de mão
+        .setInteractive({ useHandCursor: true })
 .on('pointerdown', () => {
-    this.scene.restart(); // reinicia a cena atual
+    this.scene.restart(); 
 });
     }
 
